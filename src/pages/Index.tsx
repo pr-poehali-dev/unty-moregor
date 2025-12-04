@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Header from '@/components/Header';
 import ProductCard from '@/components/ProductCard';
 import Cart from '@/components/Cart';
 import ReviewsDialog from '@/components/ReviewsDialog';
+import Filters from '@/components/Filters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -117,6 +118,10 @@ export default function Index() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 25000]);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [minRating, setMinRating] = useState(0);
 
   const handleAddToCart = (product: Product) => {
     setCartItems((prev) => {
@@ -154,6 +159,27 @@ export default function Index() {
     setReviewsOpen(true);
   };
 
+  const handleResetFilters = () => {
+    setPriceRange([0, 25000]);
+    setInStockOnly(false);
+    setMinRating(0);
+    setSearchQuery('');
+  };
+
+  const filteredProducts = useMemo(() => {
+    return PRODUCTS.filter((product) => {
+      const matchesSearch = product.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesPrice =
+        product.price >= priceRange[0] && product.price <= priceRange[1];
+      const matchesStock = !inStockOnly || product.inStock;
+      const matchesRating = product.rating >= minRating;
+
+      return matchesSearch && matchesPrice && matchesStock && matchesRating;
+    });
+  }, [searchQuery, priceRange, inStockOnly, minRating]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -185,22 +211,53 @@ export default function Index() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-12">
           <h2 className="text-3xl font-bold">Каталог товаров</h2>
           <div className="flex gap-2 w-full md:w-auto">
-            <Input placeholder="Поиск..." className="md:w-64" />
+            <Input
+              placeholder="Поиск..."
+              className="md:w-64"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <Button variant="outline" size="icon">
               <Icon name="Search" size={20} />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {PRODUCTS.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onAddToCart={handleAddToCart}
-              onShowReviews={handleShowReviews}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
+            <Filters
+              priceRange={priceRange}
+              onPriceChange={setPriceRange}
+              inStockOnly={inStockOnly}
+              onInStockChange={setInStockOnly}
+              minRating={minRating}
+              onRatingChange={setMinRating}
+              onReset={handleResetFilters}
             />
-          ))}
+          </div>
+
+          <div className="lg:col-span-3">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <Icon name="PackageOpen" size={64} className="mx-auto mb-4 text-muted-foreground" />
+                <p className="text-lg text-muted-foreground">Товары не найдены</p>
+                <Button variant="link" onClick={handleResetFilters} className="mt-2">
+                  Сбросить фильтры
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                    onShowReviews={handleShowReviews}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
